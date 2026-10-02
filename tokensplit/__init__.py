@@ -23,7 +23,7 @@ from .pricing import (
     pricing_for,
     provider_rates_for,
 )
-from .output_gate import GateLimits, GateResult, gate_tool_output
+from .output_gate import GateLimits, GateResult, SubagentOutputResult, format_subagent_output, gate_tool_output
 from .cost import CostBreakdown, CostConversionError, ProviderRates, calculate_cost
 from .streaming import StreamingUsageAdapter, StreamingUsageError
 from .usage import (
@@ -34,6 +34,50 @@ from .usage import (
     record_anthropic_usage,
     record_openai_usage,
     record_provider_usage,
+)
+from .orchestration import (
+    AgentControlPolicy,
+    AgentController,
+    AgentBudget,
+    AgentInvocation,
+    AgentRequest,
+    ComparisonLog,
+    ComparisonMeasurement,
+    ComparisonSummary,
+    DispatchDecision,
+    DispatchPlan,
+    ExecutionDiagnostic,
+    OrchestrationError,
+)
+from .orchestration_gate import (
+    THRESHOLD_EXIT_CODE,
+    OrchestrationFailurePolicy,
+    OrchestrationGateResult,
+    evaluate_orchestration_gate,
+)
+from .claude_cli import (
+    ClaudeCliConfig,
+    ClaudeCliDispatchResult,
+    ClaudeCliError,
+    ClaudeCliRunResult,
+    ClaudeCliRunner,
+    ClaudeCodeCliAdapter,
+    StderrDiagnostic,
+    classify_stderr,
+)
+from .routing import (
+    ModelProfile,
+    ModelRouter,
+    QualityAssessment,
+    QualityEvaluator,
+    RouteDecision,
+    RoutingError,
+    RoutingLog,
+    RoutingModelSummary,
+    RoutingPolicy,
+    RoutingRecord,
+    TaskClassifier,
+    TaskType,
 )
 
 __all__ = [
@@ -61,6 +105,8 @@ __all__ = [
     "provider_rates_for",
     "GateLimits",
     "GateResult",
+    "SubagentOutputResult",
+    "format_subagent_output",
     "gate_tool_output",
     "CostBreakdown",
     "CostConversionError",
@@ -75,4 +121,40 @@ __all__ = [
     "record_anthropic_usage",
     "record_openai_usage",
     "record_provider_usage",
+    "AgentControlPolicy",
+    "AgentController",
+    "AgentBudget",
+    "AgentInvocation",
+    "AgentRequest",
+    "ComparisonLog",
+    "ComparisonMeasurement",
+    "ComparisonSummary",
+    "DispatchDecision",
+    "DispatchPlan",
+    "ExecutionDiagnostic",
+    "OrchestrationError",
+    "THRESHOLD_EXIT_CODE",
+    "OrchestrationFailurePolicy",
+    "OrchestrationGateResult",
+    "evaluate_orchestration_gate",
+    "ClaudeCliConfig",
+    "ClaudeCliDispatchResult",
+    "ClaudeCliError",
+    "ClaudeCliRunResult",
+    "ClaudeCliRunner",
+    "ClaudeCodeCliAdapter",
+    "StderrDiagnostic",
+    "classify_stderr",
+    "ModelProfile",
+    "ModelRouter",
+    "QualityAssessment",
+    "QualityEvaluator",
+    "RouteDecision",
+    "RoutingError",
+    "RoutingLog",
+    "RoutingModelSummary",
+    "RoutingPolicy",
+    "RoutingRecord",
+    "TaskClassifier",
+    "TaskType",
 ]

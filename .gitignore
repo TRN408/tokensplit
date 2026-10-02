@@ -5,3 +5,5 @@ __pycache__/
 .venv/
 dist/
 .localci/installed/
+reports/comparison.jsonl
+reports/comparison.jsonl.meta.json

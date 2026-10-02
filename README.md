@@ -185,6 +185,34 @@ optional query, and includes warnings in the returned text whenever anything
 was omitted. If extraction fails, it falls back to a bounded head/tail excerpt
 and records the failure instead of silently returning incomplete output.
 
+## Authenticated orchestration CLI telemetry
+
+`tokensplit.claude_cli.ClaudeCodeCliAdapter` invokes Claude Code's JSON CLI and
+records prompt-free comparison measurements, including retry counts, safe
+failure categories, retry wait time, and transient/permanent failure counts.
+Run the live producer only with an authenticated, read-only environment:
+
+```bash
+python3 scripts/collect_live_task_markers.py reports/comparison.jsonl \
+  --model sonnet --count 20
+```
+
+The period report and quiet threshold gate consume that JSONL:
+
+```bash
+python3 scripts/orchestration_gate.py reports/comparison.jsonl \
+  --period day --max-permanent-failure-rate 0.05 \
+  --max-retry-wait-seconds 60 --fail-on-threshold
+```
+
+GitHub Actions uses [`orchestration-cli-producer.yml`](.github/workflows/orchestration-cli-producer.yml)
+to upload the `orchestration-comparison` artifact. The
+[`orchestration-gate.yml`](.github/workflows/orchestration-gate.yml) workflow
+downloads that artifact from the triggering run and emits a notification
+artifact only when a threshold is exceeded. Configure either
+`ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` as a repository secret before
+enabling the scheduled producer.
+
 ## Cache-hit regression benchmark
 
 Run the offline fixture benchmark with:
