@@ -49,9 +49,163 @@ python3 scripts/validate_policy.py
 python3 -m unittest discover -s tests -p 'test_*.py'
 ```
 
-This repository validates the policy configuration only. It does not collect
-provider-specific token data and does not decide whether a particular task must
-use an agent split.
+The repository does not collect provider-specific token data or decide whether
+a particular task must use an agent split. The context builder below is a
+provider-neutral layout and measurement component; it does not make provider
+API calls.
+
+## Stable-prefix context builder
+
+The `tokensplit.context` module provides a provider-neutral prompt layout for
+agents that need prompt caching. System instructions, canonicalized tool
+definitions, and other fixed context are rendered once at the beginning.
+Timestamp, state, conversation history, and the current user input are always
+rendered after that prefix.
+
+Compression is threshold-driven: the builder keeps recent messages verbatim and
+folds older messages only when the remaining input budget falls below the
+configured threshold. It does not rewrite a summary on every turn. The static
+prefix can pin `purpose` and `constraints`, while the current `state` is kept as
+structured dynamic data. Every removed history batch is saved through an
+`ExternalMemoryStore`; the active prompt contains only a bounded structured
+index of references, so old tool output is not silently discarded or replayed.
+It never rewrites the static prefix. Use the provider's tokenizer through
+`ContextPolicy(token_counter=...)` in production, then pass reported
+`cached_input_tokens` and `cache_write_tokens` to `CacheMetrics.observe()` to
+measure actual cache behavior.
+
+## Prompt-cache economics
+
+`tokensplit.cache` keeps normal input, cache write, and cache read volumes
+separate and estimates costs from caller-supplied model prices. It also models
+TTL expiry and reports the first repetition at which caching is no more
+expensive than sending the prefix at the normal input rate.
+
+```python
+from tokensplit import CachePricing, estimate_cache_economics
+
+pricing = CachePricing.from_multipliers(
+    "example-model",
+    input_usd_per_million=10.0,
+    cache_write_multiplier=1.25,
+    cache_read_multiplier=0.1,
+    ttl_seconds=300,
+)
+estimate = estimate_cache_economics(
+    prefix_tokens=4_500,
+    normal_input_tokens_per_request=300,
+    repetitions=5,
+    pricing=pricing,
+    request_interval_seconds=60,
+)
+print(estimate.cache_hit_rate, estimate.cached_cost_usd, estimate.break_even_repetitions)
+```
+
+For observed provider usage, call `metrics.cost_summary(pricing)`. A single
+request whose cache write costs more than the normal input path is marked by
+`short_one_off` and `cache_enabled_but_expensive`. Missing provider write
+fields remain marked as incomplete by the usage adapter instead of being
+treated as verified zero-volume writes.
+
+Price versions are maintained in [`pricing.json`](pricing.json) with
+`provider`, `model`, `ttl_seconds`, `effective_from`, and per-million token
+rates. The resolver selects the newest record effective on the requested date.
+Use `pricing_for()` for cache economics or `provider_rates_for()` when the
+result must be passed to `calculate_cost()`:
+
+```python
+from tokensplit import pricing_for
+
+pricing = pricing_for(
+    "pricing.json",
+    provider="anthropic",
+    model="fable-5.1",
+    ttl_seconds=3600,
+    as_of="2026-10-03",
+)
+```
+
+```python
+from tokensplit import provider_rates_for
+
+rates = provider_rates_for(
+    "pricing.json",
+    provider="anthropic",
+    model="fable-5.1",
+    ttl_seconds=3600,
+    as_of="2026-10-03",
+)
+assert rates.catalog_version == 1
+assert rates.effective_from.isoformat() == "2026-09-01"
+```
+
+Unknown provider/model/TTL combinations and duplicate versions are rejected.
+Price rows are local data; updating a provider's prices means adding a new
+`effective_from` row rather than overwriting the historical one. The checked-in
+Anthropic rows use the 5-minute and 1-hour prompt-cache TTLs documented by the
+provider and retain the source URL alongside the rates. Rows without an output
+rate remain usable for cache-only `CachePricing`, but are rejected when
+generating complete `ProviderRates`.
+
+`tokensplit.usage` converts provider usage responses without making API calls.
+It supports OpenAI Responses/Chat Completions and Anthropic Messages/usage
+reports, including cached input and cache-write fields. Unknown providers or
+malformed payloads fail explicitly instead of being counted as evidence.
+
+`StreamingUsageAdapter` collects OpenAI final usage chunks or Responses
+completion events and Anthropic `message_start`/`message_delta` events, then
+records one normalized observation. `ProviderRates` and `calculate_cost()`
+convert that observation to a provider/model-specific USD breakdown. If a
+provider does not report cache-write tokens, the result is marked incomplete
+instead of presenting an exact bill.
+
+```python
+from tokensplit.context import ContextBuilder, DynamicTurn, StaticContext
+
+builder = ContextBuilder(StaticContext(
+    system_instructions="Follow the safety policy.",
+    tool_definitions=[{"name": "search", "parameters": {"type": "object"}}],
+    fixed_context="Project rules",
+    purpose="Complete the migration safely.",
+    constraints=("Do not delete production data.",),
+))
+request_text = builder.build(DynamicTurn(
+    timestamp="2026-10-03T09:00:00+09:00",
+    state={"phase": "research"},
+    user_input="Find the relevant result.",
+)).full_prompt
+```
+
+## Tool output gate
+
+`tokensplit.context.ToolOutput` provides a dependency-free formatting boundary
+for large logs, files, and search results in the existing message renderer.
+`GateLimits` applies character and item limits, extracts lines relevant to an
+optional query, and includes warnings in the returned text whenever anything
+was omitted. If extraction fails, it falls back to a bounded head/tail excerpt
+and records the failure instead of silently returning incomplete output.
+
+## Cache-hit regression benchmark
+
+Run the offline fixture benchmark with:
+
+```bash
+python3 benchmarks/cache_hit_regression.py
+```
+
+It compares a stable prefix with a deliberately mutated prefix. The benchmark
+uses provider-shaped usage fixtures, so it validates the accounting path while
+remaining deterministic and network-free.
+
+To compare external-memory search and explicit reinjection quality, run:
+
+```bash
+python3 benchmarks/memory_quality.py
+```
+
+The report separates search marker recall, reinjected marker recall, context
+budget fit rate, and average token volume for each backend. The default fixture
+compares the keyword-indexed in-memory store with a recent-only baseline.
 
 ## Local CI
 
