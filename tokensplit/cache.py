@@ -40,10 +40,13 @@ class CachePricing:
     cache_write_usd_per_million: float
     cache_read_usd_per_million: float
     ttl_seconds: int
+    provider: str = ""
 
     def __post_init__(self) -> None:
         if not self.model.strip():
             raise ValueError("model must not be empty")
+        if self.provider and not self.provider.strip():
+            raise ValueError("provider must not be whitespace")
         for value, name in (
             (self.input_usd_per_million, "input_usd_per_million"),
             (self.cache_write_usd_per_million, "cache_write_usd_per_million"),
@@ -61,6 +64,7 @@ class CachePricing:
         cache_write_multiplier: float,
         cache_read_multiplier: float,
         ttl_seconds: int,
+        provider: str = "",
     ) -> "CachePricing":
         """Build prices from provider multipliers such as ``1.25x`` and ``0.1x``."""
 
@@ -72,6 +76,7 @@ class CachePricing:
             cache_write_usd_per_million=input_usd_per_million * cache_write_multiplier,
             cache_read_usd_per_million=input_usd_per_million * cache_read_multiplier,
             ttl_seconds=ttl_seconds,
+            provider=provider,
         )
 
 
@@ -95,6 +100,7 @@ class CacheCostEstimate:
     cache_enabled_but_expensive: bool
     short_one_off: bool
     cache_write_tokens_known: bool = True
+    provider: str = ""
 
     @property
     def estimated_cost_usd(self) -> float:
@@ -206,6 +212,7 @@ def estimate_cache_economics(
     )
     savings = baseline_cost - cached_cost
     return CacheCostEstimate(
+        provider=pricing.provider,
         model=pricing.model,
         ttl_seconds=pricing.ttl_seconds,
         requests=repetitions,
@@ -264,6 +271,7 @@ def summarize_cache_metrics(
         else None
     )
     return CacheCostEstimate(
+        provider=pricing.provider,
         model=pricing.model,
         ttl_seconds=pricing.ttl_seconds,
         requests=requests,
