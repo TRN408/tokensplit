@@ -8,6 +8,7 @@ unknown write count is never silently treated as a verified bill.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal
 from typing import Any
 
@@ -26,6 +27,9 @@ class ProviderRates:
     cached_input_usd_per_million: Decimal
     cache_write_usd_per_million: Decimal
     output_usd_per_million: Decimal
+    ttl_seconds: int | None = None
+    catalog_version: int | None = None
+    effective_from: date | None = None
 
     @classmethod
     def from_per_million(
@@ -37,12 +41,22 @@ class ProviderRates:
         cached_input_usd: Any,
         cache_write_usd: Any,
         output_usd: Any,
+        ttl_seconds: int | None = None,
+        catalog_version: int | None = None,
+        effective_from: date | None = None,
     ) -> "ProviderRates":
         values = (input_usd, cached_input_usd, cache_write_usd, output_usd)
         rates = tuple(Decimal(str(value)) for value in values)
         if any(rate < 0 for rate in rates):
             raise CostConversionError("token rates cannot be negative")
-        return cls(provider, model, *rates)
+        return cls(
+            provider,
+            model,
+            *rates,
+            ttl_seconds=ttl_seconds,
+            catalog_version=catalog_version,
+            effective_from=effective_from,
+        )
 
 
 @dataclass(frozen=True)

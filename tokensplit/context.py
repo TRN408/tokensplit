@@ -11,6 +11,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from hashlib import sha256
 import json
+import re
 from typing import Any, Protocol
 
 from .output_gate import Extractor, GateLimits, GateResult, gate_tool_output
@@ -125,11 +126,30 @@ class Message:
         }
 
 
+@dataclass(frozen=True)
+class MemoryHit:
+    """One searchable external-memory result ready for explicit reinjection."""
+
+    reference: str
+    messages: tuple[Message, ...]
+    score: float
+
+    def render(self) -> str:
+        return "\n".join(message.render() for message in self.messages)
+
+
 class ExternalMemoryStore(Protocol):
     """Storage boundary for history removed from the active context."""
 
     def save(self, messages: Sequence[Message]) -> str:
         """Persist messages and return a reference that can be resolved later."""
+
+
+class SearchableExternalMemoryStore(ExternalMemoryStore, Protocol):
+    """External memory that can retrieve relevant archived messages."""
+
+    def search(self, query: str, *, top_k: int = 3) -> Sequence[MemoryHit]:
+        """Return the most relevant archived batches for a query."""
 
 
 class InMemoryExternalMemory:
@@ -154,6 +174,21 @@ class InMemoryExternalMemory:
     def load(self, reference: str) -> tuple[Message, ...]:
         return self._entries[reference]
 
+    def search(self, query: str, *, top_k: int = 3) -> tuple[MemoryHit, ...]:
+        if top_k < 1:
+            raise ValueError("top_k must be positive")
+        terms = [term for term in re.findall(r"\w+", query.casefold()) if term]
+        if not terms:
+            return ()
+        scored: list[MemoryHit] = []
+        for reference, messages in self._entries.items():
+            text = "\n".join(message.render() for message in messages).casefold()
+            score = sum(text.count(term) for term in terms)
+            if score:
+                scored.append(MemoryHit(reference, messages, float(score)))
+        scored.sort(key=lambda hit: (-hit.score, hit.reference))
+        return tuple(scored[:top_k])
+
     @property
     def entries(self) -> Mapping[str, tuple[Message, ...]]:
         return dict(self._entries)
@@ -172,6 +207,7 @@ class DynamicTurn:
     timestamp: str = ""
     state: Mapping[str, Any] = field(default_factory=dict)
     history: Sequence[Message] = ()
+    retrieved_memory: Sequence[Message] = ()
 
 
 @dataclass(frozen=True)
@@ -415,6 +451,10 @@ class ContextBuilder:
         ]
         if summary:
             parts.extend(["<compressed-history>", summary, "</compressed-history>"])
+        if turn.retrieved_memory:
+            parts.append("<retrieved-memory>")
+            parts.extend(message.render() for message in turn.retrieved_memory)
+            parts.append("</retrieved-memory>")
         parts.append("<history>")
         parts.extend(message.render() for message in history)
         parts.extend(["</history>", "<user-input>", turn.user_input, "</user-input>", "</dynamic-context>"])

@@ -8,6 +8,7 @@ price models, so it never makes network calls or silently embeds a price.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from math import floor
 
 from .context import CacheMetrics
@@ -41,12 +42,22 @@ class CachePricing:
     cache_read_usd_per_million: float
     ttl_seconds: int
     provider: str = ""
+    effective_from: date | None = None
+    catalog_version: int | None = None
 
     def __post_init__(self) -> None:
         if not self.model.strip():
             raise ValueError("model must not be empty")
         if self.provider and not self.provider.strip():
             raise ValueError("provider must not be whitespace")
+        if self.effective_from is not None and not isinstance(self.effective_from, date):
+            raise ValueError("effective_from must be a date")
+        if self.catalog_version is not None and (
+            isinstance(self.catalog_version, bool)
+            or not isinstance(self.catalog_version, int)
+            or self.catalog_version < 1
+        ):
+            raise ValueError("catalog_version must be a positive integer")
         for value, name in (
             (self.input_usd_per_million, "input_usd_per_million"),
             (self.cache_write_usd_per_million, "cache_write_usd_per_million"),

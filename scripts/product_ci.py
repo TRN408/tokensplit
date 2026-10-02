@@ -12,7 +12,7 @@ import zipfile
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 VENV = ROOT / ".venv"
 DIST = ROOT / "dist"
-PACKAGE_FILES = ("README.md", "LICENSE", "policy.json", "scripts", "tokensplit", "benchmarks", "tests")
+PACKAGE_FILES = ("README.md", "LICENSE", "policy.json", "pricing.json", "scripts", "tokensplit", "benchmarks", "tests")
 
 
 def install() -> None:

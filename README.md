@@ -107,6 +107,46 @@ request whose cache write costs more than the normal input path is marked by
 fields remain marked as incomplete by the usage adapter instead of being
 treated as verified zero-volume writes.
 
+Price versions are maintained in [`pricing.json`](pricing.json) with
+`provider`, `model`, `ttl_seconds`, `effective_from`, and per-million token
+rates. The resolver selects the newest record effective on the requested date.
+Use `pricing_for()` for cache economics or `provider_rates_for()` when the
+result must be passed to `calculate_cost()`:
+
+```python
+from tokensplit import pricing_for
+
+pricing = pricing_for(
+    "pricing.json",
+    provider="anthropic",
+    model="fable-5.1",
+    ttl_seconds=3600,
+    as_of="2026-10-03",
+)
+```
+
+```python
+from tokensplit import provider_rates_for
+
+rates = provider_rates_for(
+    "pricing.json",
+    provider="anthropic",
+    model="fable-5.1",
+    ttl_seconds=3600,
+    as_of="2026-10-03",
+)
+assert rates.catalog_version == 1
+assert rates.effective_from.isoformat() == "2026-09-01"
+```
+
+Unknown provider/model/TTL combinations and duplicate versions are rejected.
+Price rows are local data; updating a provider's prices means adding a new
+`effective_from` row rather than overwriting the historical one. The checked-in
+Anthropic rows use the 5-minute and 1-hour prompt-cache TTLs documented by the
+provider and retain the source URL alongside the rates. Rows without an output
+rate remain usable for cache-only `CachePricing`, but are rejected when
+generating complete `ProviderRates`.
+
 `tokensplit.usage` converts provider usage responses without making API calls.
 It supports OpenAI Responses/Chat Completions and Anthropic Messages/usage
 reports, including cached input and cache-write fields. Unknown providers or
@@ -156,6 +196,16 @@ python3 benchmarks/cache_hit_regression.py
 It compares a stable prefix with a deliberately mutated prefix. The benchmark
 uses provider-shaped usage fixtures, so it validates the accounting path while
 remaining deterministic and network-free.
+
+To compare external-memory search and explicit reinjection quality, run:
+
+```bash
+python3 benchmarks/memory_quality.py
+```
+
+The report separates search marker recall, reinjected marker recall, context
+budget fit rate, and average token volume for each backend. The default fixture
+compares the keyword-indexed in-memory store with a recent-only baseline.
 
 ## Local CI
 
