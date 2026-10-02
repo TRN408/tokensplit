@@ -1,0 +1,24 @@
+schema_version: 1
+policy_version: 0.1.0
+
+project:
+  name: tokensplit
+  base_branch: main
+  integration_prefix: integration/
+  feature_prefix: feature/
+
+commands:
+  install: python3 scripts/product_ci.py install
+  test: python3 scripts/product_ci.py test
+  typecheck: python3 scripts/product_ci.py typecheck
+  build: python3 scripts/product_ci.py build
+  full_ci: python3 scripts/product_ci.py full_ci
+
+github:
+  enabled: false
+  workflow_mode: manual
+  timeout_minutes: 15
+
+storage:
+  log_retention_days: 7
+  result_cache_days: 7

@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "policy_version": "0.1.0",
+  "minimum_quality_passed_single_measurements": 3,
+  "minimum_single_median_tokens": 20000,
+  "minimum_expected_savings_ratio": 0.25,
+  "minimum_measured_savings_ratio_after_split": 0.15,
+  "unknown_measurements_count_as_evidence": false
+}

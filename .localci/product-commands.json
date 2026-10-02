@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "commands": [
+    {
+      "name": "install",
+      "stage": "install",
+      "command": "python3 scripts/product_ci.py install",
+      "platforms": ["linux", "macos", "windows"]
+    },
+    {
+      "name": "validate-policy",
+      "stage": "test",
+      "command": "python3 scripts/validate_policy.py",
+      "platforms": ["linux", "macos", "windows"]
+    },
+    {
+      "name": "unit-tests",
+      "stage": "test",
+      "command": "python3 -m unittest discover -s tests -p 'test_*.py'",
+      "platforms": ["linux", "macos", "windows"]
+    },
+    {
+      "name": "typecheck",
+      "stage": "typecheck",
+      "command": "python3 scripts/product_ci.py typecheck",
+      "platforms": ["linux", "macos", "windows"]
+    },
+    {
+      "name": "build",
+      "stage": "build",
+      "command": "python3 scripts/product_ci.py build",
+      "platforms": ["linux", "macos", "windows"]
+    },
+    {
+      "name": "full-ci",
+      "stage": "full_ci",
+      "command": "python3 scripts/product_ci.py full_ci",
+      "platforms": ["linux", "macos", "windows"]
+    }
+  ]
+}
