@@ -12,7 +12,7 @@ import zipfile
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 VENV = ROOT / ".venv"
 DIST = ROOT / "dist"
-PACKAGE_FILES = ("README.md", "LICENSE", "policy.json", "scripts", "tests")
+PACKAGE_FILES = ("README.md", "LICENSE", "policy.json", "scripts", "tokensplit", "benchmarks", "tests")
 
 
 def install() -> None:
@@ -22,16 +22,16 @@ def install() -> None:
 
 
 def test() -> None:
-    subprocess.run([sys.executable, "scripts/validate_policy.py"], cwd=ROOT, check=True)
     subprocess.run(
         [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-p", "test_*.py"],
         cwd=ROOT,
         check=True,
     )
+    subprocess.run([sys.executable, "scripts/validate_policy.py"], cwd=ROOT, check=True)
 
 
 def typecheck() -> None:
-    if not all(compileall.compile_dir(str(ROOT / path), quiet=1) for path in ("scripts", "tests")):
+    if not all(compileall.compile_dir(str(ROOT / path), quiet=1) for path in ("scripts", "tokensplit", "benchmarks", "tests")):
         raise SystemExit("typecheck failed")
     print("typecheck passed")
 
