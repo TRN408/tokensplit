@@ -5,5 +5,7 @@
   "minimum_single_median_tokens": 20000,
   "minimum_expected_savings_ratio": 0.25,
   "minimum_measured_savings_ratio_after_split": 0.15,
+  "single_measurement_requires_quality_pass": true,
+  "split_result_requires_quality_pass": true,
   "unknown_measurements_count_as_evidence": false
 }

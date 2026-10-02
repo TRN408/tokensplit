@@ -17,6 +17,13 @@ The default policy is stored in [`policy.json`](policy.json). It requires:
 - a measured saving of at least 15% after splitting.
 
 Unknown or missing token measurements must not be counted as savings evidence.
+Only measurements with an explicit quality pass and a positive integer token
+count are eligible for the single-agent baseline. At least three eligible
+measurements are required, and their median must meet the configured minimum.
+The expected saving estimate must meet its threshold before a split is tried.
+After a trial, the split is accepted only when quality explicitly passes and
+the measured saving ratio `(single-agent tokens - split tokens) / single-agent
+tokens` meets the configured post-split threshold. Unknown inputs fail closed.
 
 The thresholds are defaults, not universal truths. Projects may create their own
 policy file and explain why they changed a threshold.
@@ -49,9 +56,9 @@ python3 scripts/validate_policy.py
 python3 -m unittest discover -s tests -p 'test_*.py'
 ```
 
-This repository validates the policy configuration only. It does not collect
-provider-specific token data and does not decide whether a particular task must
-use an agent split.
+The repository validates the configuration and provides reusable pre-trial and
+post-trial decision checks. It does not collect provider-specific token data,
+score task quality, or automatically split tasks.
 
 ## Local CI
 
