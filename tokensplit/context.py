@@ -463,27 +463,17 @@ class ContextBuilder:
         if self._token_count(candidate) <= budget:
             return candidate
 
-        # Preserve every reference and count first. The full messages remain
-        # in memory and are never reinserted into the active prompt.
-        compact_records = records
-        candidate = _canonical_json(
-            {
-                "strategy": "external-memory",
-                "archives": compact_records,
-            }
-        )
-        if self._token_count(candidate) <= budget:
-            return candidate
-
         # A very long-running session can produce more references than the
         # summary budget can display. Keep the newest references in the prompt
-        # and expose the total so omission is explicit and recoverable.
-        for start in range(1, len(compact_records)):
+        # and expose the total so omission is explicit and recoverable. The
+        # full messages remain in memory and are never reinserted into the
+        # active prompt.
+        for start in range(1, len(records)):
             candidate = _canonical_json(
                 {
                     "strategy": "external-memory",
                     "omitted_archive_count": start,
-                    "archives": compact_records[start:],
+                    "archives": records[start:],
                 }
             )
             if self._token_count(candidate) <= budget:
@@ -492,6 +482,6 @@ class ContextBuilder:
         return _canonical_json(
             {
                 "strategy": "external-memory",
-                "omitted_archive_count": len(compact_records),
+                "omitted_archive_count": len(records),
             }
         )
