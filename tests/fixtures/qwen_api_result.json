@@ -1,0 +1,21 @@
+{
+  "id": "chatcmpl-anonymized",
+  "object": "chat.completion",
+  "created": 1700000000,
+  "model": "qwen-plus",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "qwen-ok"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 4,
+    "completion_tokens": 7,
+    "total_tokens": 11
+  }
+}

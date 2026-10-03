@@ -55,15 +55,33 @@ use an agent split.
 
 ## Authenticated orchestration CLI telemetry
 
-`tokensplit.claude_cli.ClaudeCodeCliAdapter` invokes Claude Code's JSON CLI and
-records prompt-free comparison measurements, including retry counts, safe
-failure categories, retry wait time, and transient/permanent failure counts.
-The read-only live producer writes `reports/comparison.jsonl`:
+`tokensplit.claude_cli.ClaudeCodeCliAdapter` and
+`tokensplit.qwen_api.QwenApiAdapter` share the same orchestration and
+comparison-log contract. They record prompt-free comparison measurements,
+including retry counts, safe failure categories, retry wait time, and
+transient/permanent failure counts. The read-only live producer writes
+`reports/comparison.jsonl`:
 
 ```bash
 python3 scripts/collect_live_task_markers.py reports/comparison.jsonl \
-  --model sonnet --count 20
+  --provider claude --model sonnet --count 20
 ```
+
+Qwen can be selected with the OpenAI-compatible API adapter. The API key is
+read from `QWEN_API_KEY` (with `DASHSCOPE_API_KEY` as a compatibility
+fallback); `QWEN_API_BASE_URL` is optional and accepts either the full
+`/chat/completions` URL or a `/v1` base URL. It defaults to the DashScope
+international compatible endpoint:
+
+```bash
+QWEN_API_KEY=... python3 scripts/collect_live_task_markers.py reports/comparison.jsonl \
+  --provider qwen --model qwen-plus --count 20
+```
+
+The direct API adapter normalizes Qwen chat-completion responses, but it does
+not grant the model access to the local repository. Repository inspection
+tasks therefore require a Qwen tool-enabled CLI or an equivalent execution
+wrapper if the task prompts need file access.
 
 The period report and quiet threshold gate consume that JSONL. A threshold
 breach returns exit code `10` with `--fail-on-threshold` and creates a
@@ -80,8 +98,10 @@ to upload the `orchestration-comparison` artifact. The
 [`orchestration-gate.yml`](.github/workflows/orchestration-gate.yml) workflow
 downloads that artifact from the triggering run and emits a notification
 artifact only when a threshold is exceeded. Configure either
-`ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` as a repository secret before
-enabling the scheduled producer.
+`ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` for Claude, or `QWEN_API_KEY`
+for Qwen, as a repository secret before enabling the scheduled producer. The
+manual producer input `provider` selects the adapter; `model` is optional and
+uses the provider default when blank.
 
 ## Local CI
 
