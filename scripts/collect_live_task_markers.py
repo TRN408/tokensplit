@@ -18,7 +18,7 @@ if __package__ in {None, ""}:
 from tokensplit.claude_cli import ClaudeCliConfig, ClaudeCliRunner, ClaudeCodeCliAdapter
 from tokensplit.orchestration import AgentControlPolicy, AgentController, AgentRequest
 from tokensplit.output_gate import GateLimits
-from tokensplit.qwen_api import QwenApiAdapter, QwenApiConfig, QwenApiRunner
+from tokensplit.qwen_api import QwenApiAdapter, QwenApiConfig, QwenToolCallingRunner
 
 
 @dataclass(frozen=True)
@@ -108,11 +108,12 @@ def collect(
         )
         adapter = ClaudeCodeCliAdapter(runner=runner, controller=controller)
     elif provider == "qwen":
-        runner = QwenApiRunner(
+        runner = QwenToolCallingRunner(
             QwenApiConfig(
                 output_limits=limits,
                 max_retries=2,
                 timeout_seconds=180,
+                working_directory=Path.cwd(),
             )
         )
         adapter = QwenApiAdapter(runner=runner, controller=controller)
