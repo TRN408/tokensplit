@@ -1,0 +1,72 @@
+name: orchestration-cli-producer
+
+on:
+  schedule:
+    - cron: "7 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      model:
+        description: "Claude model alias"
+        required: false
+        default: "sonnet"
+        type: string
+      count:
+        description: "Number of read-only live verification tasks"
+        required: false
+        default: "20"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CLAUDE_MODEL: ${{ inputs.model || 'sonnet' }}
+      TASK_COUNT: ${{ inputs.count || '20' }}
+      CLAUDE_CODE_VERSION: "2.1.195"
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: install Claude Code CLI
+        run: npm install --global "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
+
+      - name: collect authenticated comparison JSONL
+        id: collect
+        continue-on-error: true
+        shell: bash
+        run: |
+          mkdir -p reports .ci-artifacts
+          python3 scripts/collect_live_task_markers.py reports/comparison.jsonl \
+            --model "$CLAUDE_MODEL" \
+            --count "$TASK_COUNT" \
+            > .ci-artifacts/producer-result.json
+
+      - name: record producer status
+        if: always()
+        run: |
+          cat > .ci-artifacts/producer-status.json <<'JSON'
+          {"workflow": "orchestration-cli-producer", "collector_outcome": "${{ steps.collect.outcome }}"}
+          JSON
+
+      - name: upload comparison JSONL
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: orchestration-comparison
+          path: reports/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: upload producer metadata
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: orchestration-producer-metadata
+          path: .ci-artifacts/
+          if-no-files-found: warn
+          retention-days: 14
