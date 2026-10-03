@@ -13,6 +13,7 @@ class OrchestrationWorkflowTests(unittest.TestCase):
         self.assertIn("scripts/collect_live_task_markers.py reports/comparison.jsonl", workflow)
         self.assertIn("name: orchestration-comparison", workflow)
         self.assertIn("path: reports/", workflow)
+        self.assertIn("include-hidden-files: true", workflow)
         self.assertIn("if: always()", workflow)
 
     def test_monitor_downloads_the_triggering_producer_run_artifact(self):
@@ -21,7 +22,10 @@ class OrchestrationWorkflowTests(unittest.TestCase):
         self.assertIn('workflows: ["orchestration-cli-producer"]', workflow)
         self.assertIn("actions/download-artifact", workflow)
         self.assertIn("name: orchestration-comparison", workflow)
-        self.assertIn("run-id: ${{ github.event.workflow_run.id }}", workflow)
+        self.assertIn("run-id: ${{ github.event.workflow_run.id || inputs.producer_run_id }}", workflow)
+        self.assertIn("producer_run_id:", workflow)
+        self.assertIn("inputs.producer_run_id", workflow)
+        self.assertIn("include-hidden-files: true", workflow)
         self.assertIn("scripts/orchestration_gate.py", workflow)
         self.assertIn("orchestration-failure-notification.json", workflow)
 

@@ -35,6 +35,11 @@ on:
         required: false
         default: "1"
         type: string
+      producer_run_id:
+        description: "Optional completed producer run ID to replay"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   actions: read
@@ -50,11 +55,12 @@ jobs:
       MAX_PERMANENT_FAILURE_RATE: ${{ inputs.max_permanent_failure_rate || '0' }}
       MAX_RETRY_WAIT_SECONDS: ${{ inputs.max_retry_wait_seconds || '60' }}
       MIN_EXECUTIONS: ${{ inputs.min_executions || '1' }}
+      PRODUCER_RUN_ID: ${{ inputs.producer_run_id || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: download producer comparison JSONL
-        if: ${{ github.event_name == 'workflow_run' }}
+        if: ${{ github.event_name == 'workflow_run' || inputs.producer_run_id != '' }}
         continue-on-error: true
         uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
         with:
@@ -62,7 +68,7 @@ jobs:
           path: reports
           github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository }}
-          run-id: ${{ github.event.workflow_run.id }}
+          run-id: ${{ github.event.workflow_run.id || inputs.producer_run_id }}
 
       - name: evaluate orchestration failure gate
         run: |
@@ -92,4 +98,5 @@ jobs:
           name: orchestration-failure-gate
           path: .ci-artifacts/
           if-no-files-found: warn
+          include-hidden-files: true
           retention-days: 14
