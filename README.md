@@ -53,6 +53,36 @@ This repository validates the policy configuration only. It does not collect
 provider-specific token data and does not decide whether a particular task must
 use an agent split.
 
+## Authenticated orchestration CLI telemetry
+
+`tokensplit.claude_cli.ClaudeCodeCliAdapter` invokes Claude Code's JSON CLI and
+records prompt-free comparison measurements, including retry counts, safe
+failure categories, retry wait time, and transient/permanent failure counts.
+The read-only live producer writes `reports/comparison.jsonl`:
+
+```bash
+python3 scripts/collect_live_task_markers.py reports/comparison.jsonl \
+  --model sonnet --count 20
+```
+
+The period report and quiet threshold gate consume that JSONL. A threshold
+breach returns exit code `10` with `--fail-on-threshold` and creates a
+notification JSON; quiet runs remove stale notification files:
+
+```bash
+python3 scripts/orchestration_gate.py reports/comparison.jsonl \
+  --period day --max-permanent-failure-rate 0.05 \
+  --max-retry-wait-seconds 60 --fail-on-threshold
+```
+
+GitHub Actions uses [`orchestration-cli-producer.yml`](.github/workflows/orchestration-cli-producer.yml)
+to upload the `orchestration-comparison` artifact. The
+[`orchestration-gate.yml`](.github/workflows/orchestration-gate.yml) workflow
+downloads that artifact from the triggering run and emits a notification
+artifact only when a threshold is exceeded. Configure either
+`ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` as a repository secret before
+enabling the scheduled producer.
+
 ## Local CI
 
 The repository includes the localCI integration used before a push. The product

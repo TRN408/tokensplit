@@ -1,0 +1,95 @@
+name: orchestration-failure-gate
+
+on:
+  workflow_run:
+    workflows: ["orchestration-cli-producer"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      comparison_log_path:
+        description: "Prompt-free ComparisonLog JSONL path"
+        required: false
+        default: "reports/comparison.jsonl"
+        type: string
+      period:
+        description: "UTC aggregation bucket"
+        required: false
+        default: "day"
+        type: choice
+        options:
+          - day
+          - week
+          - month
+      max_permanent_failure_rate:
+        description: "Maximum permanent failure rate per period/model"
+        required: false
+        default: "0"
+        type: string
+      max_retry_wait_seconds:
+        description: "Maximum cumulative retry wait seconds per period/model"
+        required: false
+        default: "60"
+        type: string
+      min_executions:
+        description: "Minimum executions before a row can alert"
+        required: false
+        default: "1"
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      COMPARISON_LOG_PATH: ${{ inputs.comparison_log_path || 'reports/comparison.jsonl' }}
+      PERIOD: ${{ inputs.period || 'day' }}
+      MAX_PERMANENT_FAILURE_RATE: ${{ inputs.max_permanent_failure_rate || '0' }}
+      MAX_RETRY_WAIT_SECONDS: ${{ inputs.max_retry_wait_seconds || '60' }}
+      MIN_EXECUTIONS: ${{ inputs.min_executions || '1' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: download producer comparison JSONL
+        if: ${{ github.event_name == 'workflow_run' }}
+        continue-on-error: true
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
+        with:
+          name: orchestration-comparison
+          path: reports
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: evaluate orchestration failure gate
+        run: |
+          if test ! -f "$COMPARISON_LOG_PATH"; then
+            echo "No comparison log at $COMPARISON_LOG_PATH; keeping the gate quiet."
+            echo "### Orchestration failure gate" >> "$GITHUB_STEP_SUMMARY"
+            echo "No comparison log was supplied; no notification was emitted." >> "$GITHUB_STEP_SUMMARY"
+            echo "orchestration_failure_alert=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          python3 scripts/orchestration_gate.py "$COMPARISON_LOG_PATH" \
+            --period "$PERIOD" \
+            --min-executions "$MIN_EXECUTIONS" \
+            --max-permanent-failure-rate "$MAX_PERMANENT_FAILURE_RATE" \
+            --max-retry-wait-seconds "$MAX_RETRY_WAIT_SECONDS" \
+            --report-output .ci-artifacts/orchestration-failure-report.json \
+            --notification-output .ci-artifacts/orchestration-failure-notification.json \
+            --github-output "$GITHUB_OUTPUT" \
+            --github-summary "$GITHUB_STEP_SUMMARY" \
+            --fail-on-threshold
+
+      - name: upload orchestration failure artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: orchestration-failure-gate
+          path: .ci-artifacts/
+          if-no-files-found: warn
+          retention-days: 14
