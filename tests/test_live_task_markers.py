@@ -12,6 +12,7 @@ class LiveTaskContractTests(unittest.TestCase):
         )
         self.assertIn("Do not use semicolons", prompt)
         self.assertIn("do not use FAIL merely because", prompt)
+        self.assertIn("these acceptance checks are expected to pass", prompt)
         self.assertNotIn("TASK_ID: task-x; TARGET:", prompt)
 
 
