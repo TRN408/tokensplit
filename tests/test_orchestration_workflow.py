@@ -11,6 +11,9 @@ class OrchestrationWorkflowTests(unittest.TestCase):
 
         self.assertIn("name: orchestration-cli-producer", workflow)
         self.assertIn("scripts/collect_live_task_markers.py reports/comparison.jsonl", workflow)
+        self.assertIn('--provider "$PROVIDER"', workflow)
+        self.assertIn("QWEN_API_KEY", workflow)
+        self.assertIn("options:\n          - claude\n          - qwen", workflow)
         self.assertIn("name: orchestration-comparison", workflow)
         self.assertIn("path: reports/", workflow)
         self.assertIn("include-hidden-files: true", workflow)

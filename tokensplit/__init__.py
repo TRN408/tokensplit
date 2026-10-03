@@ -38,6 +38,13 @@ from .claude_cli import (
     StderrDiagnostic,
     classify_stderr,
 )
+from .qwen_api import (
+    DEFAULT_QWEN_API_URL,
+    QwenApiAdapter,
+    QwenApiConfig,
+    QwenApiError,
+    QwenApiRunner,
+)
 from .routing import (
     ModelProfile,
     ModelRouter,
@@ -84,6 +91,11 @@ __all__ = [
     "ClaudeCodeCliAdapter",
     "StderrDiagnostic",
     "classify_stderr",
+    "DEFAULT_QWEN_API_URL",
+    "QwenApiAdapter",
+    "QwenApiConfig",
+    "QwenApiError",
+    "QwenApiRunner",
     "ModelProfile",
     "ModelRouter",
     "QualityAssessment",

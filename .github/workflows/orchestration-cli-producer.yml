@@ -6,10 +6,18 @@ on:
   workflow_dispatch:
     inputs:
       model:
-        description: "Claude model alias"
+        description: "Provider model id (blank uses the provider default)"
         required: false
-        default: "sonnet"
+        default: ""
         type: string
+      provider:
+        description: "Live provider adapter"
+        required: false
+        default: "claude"
+        type: choice
+        options:
+          - claude
+          - qwen
       count:
         description: "Number of read-only live verification tasks"
         required: false
@@ -24,15 +32,20 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
-      CLAUDE_MODEL: ${{ inputs.model || 'sonnet' }}
+      PROVIDER: ${{ inputs.provider || 'claude' }}
+      MODEL_INPUT: ${{ inputs.model || '' }}
       TASK_COUNT: ${{ inputs.count || '20' }}
       CLAUDE_CODE_VERSION: "2.1.195"
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
+      DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+      QWEN_API_BASE_URL: ${{ secrets.QWEN_API_BASE_URL }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: install Claude Code CLI
+        if: env.PROVIDER == 'claude'
         run: npm install --global "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
 
       - name: collect authenticated comparison JSONL
@@ -42,7 +55,8 @@ jobs:
         run: |
           mkdir -p reports .ci-artifacts
           python3 scripts/collect_live_task_markers.py reports/comparison.jsonl \
-            --model "$CLAUDE_MODEL" \
+            --provider "$PROVIDER" \
+            --model "$MODEL_INPUT" \
             --count "$TASK_COUNT" \
             > .ci-artifacts/producer-result.json
 

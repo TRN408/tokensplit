@@ -18,6 +18,7 @@ if __package__ in {None, ""}:
 from tokensplit.claude_cli import ClaudeCliConfig, ClaudeCliRunner, ClaudeCodeCliAdapter
 from tokensplit.orchestration import AgentControlPolicy, AgentController, AgentRequest
 from tokensplit.output_gate import GateLimits
+from tokensplit.qwen_api import QwenApiAdapter, QwenApiConfig, QwenApiRunner
 
 
 @dataclass(frozen=True)
@@ -76,6 +77,7 @@ TASKS = (
 def collect(
     output: Path,
     *,
+    provider: str,
     model: str,
     count: int,
     max_chars: int,
@@ -90,22 +92,32 @@ def collect(
         max_items=max_items,
         max_output_tokens=max_output_tokens,
     )
-    runner = ClaudeCliRunner(
-        ClaudeCliConfig(
-            tools=None,
-            extra_args=("--permission-mode", "plan"),
-            output_limits=limits,
-            max_retries=2,
-            timeout_seconds=180,
+    controller = AgentController(
+        AgentControlPolicy(max_subagents=1),
+        root_model=model,
+    )
+    if provider == "claude":
+        runner = ClaudeCliRunner(
+            ClaudeCliConfig(
+                tools=None,
+                extra_args=("--permission-mode", "plan"),
+                output_limits=limits,
+                max_retries=2,
+                timeout_seconds=180,
+            )
         )
-    )
-    adapter = ClaudeCodeCliAdapter(
-        runner=runner,
-        controller=AgentController(
-            AgentControlPolicy(max_subagents=1),
-            root_model=model,
-        ),
-    )
+        adapter = ClaudeCodeCliAdapter(runner=runner, controller=controller)
+    elif provider == "qwen":
+        runner = QwenApiRunner(
+            QwenApiConfig(
+                output_limits=limits,
+                max_retries=2,
+                timeout_seconds=180,
+            )
+        )
+        adapter = QwenApiAdapter(runner=runner, controller=controller)
+    else:
+        raise ValueError(f"unsupported provider: {provider}")
     failures: list[dict[str, str]] = []
     for task in TASKS[:count]:
         try:
@@ -131,7 +143,8 @@ def collect(
     output.write_text(records + ("\n" if records else ""), encoding="utf-8")
     metadata = {
         "collected_at": datetime.now(timezone.utc).isoformat(),
-        "source": "authenticated_claude_cli_adapter",
+        "source": f"authenticated_{provider}_adapter",
+        "provider": provider,
         "model": model,
         "requested_count": count,
         "record_count": len(adapter.comparison_log.records()),
@@ -151,14 +164,21 @@ def collect(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
-    parser.add_argument("--model", default=os.environ.get("TOKENSPLIT_CLAUDE_MODEL", "sonnet"))
+    parser.add_argument("--provider", choices=("claude", "qwen"), default=os.environ.get("TOKENSPLIT_PROVIDER", "claude"))
+    parser.add_argument("--model", default=None)
     parser.add_argument("--count", type=int, default=20)
     parser.add_argument("--max-chars", type=int, default=1200)
     parser.add_argument("--max-items", type=int, default=24)
     parser.add_argument("--max-output-tokens", type=int, default=300)
     args = parser.parse_args()
+    model = args.model or os.environ.get(
+        "TOKENSPLIT_CLAUDE_MODEL" if args.provider == "claude" else "TOKENSPLIT_QWEN_MODEL",
+        "sonnet" if args.provider == "claude" else "qwen-plus",
+    )
+    values = vars(args)
+    values["model"] = model
     try:
-        print(json.dumps(collect(**vars(args)), ensure_ascii=False, sort_keys=True))
+        print(json.dumps(collect(**values), ensure_ascii=False, sort_keys=True))
     except (OSError, ValueError, RuntimeError) as exc:
         print(f"live task-marker collection failed: {exc}", file=sys.stderr)
         return 2
