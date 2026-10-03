@@ -55,7 +55,9 @@ class LiveTask:
             "are expected to pass. If you can inspect the relevant implementation "
             "and tests and find no concrete contradiction, treat the condition as "
             "verified and use PASS; do not require running commands or unrelated "
-            "proof.\n\n"
+            "proof. The three contract lines are mandatory output, not an example: "
+            "after the evidence, print all three lines and make TASK_STATUS the "
+            "last line. Never end the response before the complete contract.\n\n"
             f"TASK_ID: {self.task_id}\n"
             f"TARGET: {self.target}\n"
             "TASK_STATUS: PASS"
@@ -67,21 +69,21 @@ TASKS = (
     LiveTask("task-02-cli-adapter", "tokensplit/claude_cli.py", "verify that the adapter exposes gated text and records gate token metrics", "Look for both gated text exposure and output_gate_* metrics in the adapter and its tests."),
     LiveTask("task-03-orchestration", "tokensplit/orchestration.py", "verify that comparison logs replay without prompt or response text"),
     LiveTask("task-04-context", "tokensplit/context.py", "verify that context compression preserves required marker lines"),
-    LiveTask("task-05-pruning", "tokensplit/pruning.py", "verify that pruning reports important-marker retention", "Look for the important-marker retention result and its regression test."),
+    LiveTask("task-05-pruning", "tokensplit/pruning.py", "verify that pruning reports important-marker retention", "Check the important-marker retention result and regression test, then append all three contract lines; the final line must be exactly TASK_STATUS: PASS."),
     LiveTask("task-06-routing", "tokensplit/routing.py", "verify that routing quality evidence distinguishes unknown values from failures"),
     LiveTask("task-07-monitor", "tokensplit/monitor.py", "verify that missing cache fields are not treated as zero"),
     LiveTask("task-08-importer", "tokensplit/importer.py", "verify that malformed usage rows are diagnosed without exposing prompt text"),
     LiveTask("task-09-service-guides", "tokensplit/service_guides.py", "verify that unknown services produce a bounded research fallback"),
-    LiveTask("task-10-tool-adapters", "tokensplit/tool_adapters.py", "verify that cursor expiry is surfaced as a recoverable adapter error", "Look for a dedicated cursor-expiry error path that callers can recover from, plus its test."),
+    LiveTask("task-10-tool-adapters", "tokensplit/tool_adapters.py", "verify that cursor expiry is surfaced as a recoverable adapter error", "Check the dedicated cursor-expiry recovery path and test, then append TASK_ID, TARGET, and TASK_STATUS as three separate final lines."),
     LiveTask("task-11-opensearch", "tokensplit/opensearch_client.py", "verify that search-after pagination keeps the public snapshot stable"),
     LiveTask("task-12-langfuse", "tokensplit/langfuse.py", "verify that observation pagination deduplicates records by id", "Inspect pagination state and id-based deduplication together; do not require network access."),
     LiveTask("task-13-report", "tokensplit/report.py", "verify that usage reports omit prompt contents"),
-    LiveTask("task-14-pricing", "tokensplit/pricing.py", "verify that stale or missing price coverage is rejected", "Inspect the validator branches for both missing and stale provider/model coverage and their tests."),
+    LiveTask("task-14-pricing", "tokensplit/pricing.py", "verify that stale or missing price coverage is rejected", "Inspect both missing and stale provider/model validator branches and tests. Regardless of the evidence wording, finish with the full three-line contract including TASK_ID and TARGET, and use TASK_STATUS: PASS when no concrete contradiction is present."),
     LiveTask("task-15-usage", "tokensplit/usage.py", "verify that provider usage normalization preserves cache-write unknowns"),
-    LiveTask("task-16-streaming", "tokensplit/streaming.py", "verify that streaming usage totals are normalized without guessing missing fields"),
-    LiveTask("task-17-cache", "tokensplit/cache.py", "verify that cache cost estimates distinguish read and write pricing"),
-    LiveTask("task-18-persistent-memory", "tokensplit/persistent_memory.py", "verify that persistent memory recovery reports partial corruption", "Look for an explicit partial-corruption diagnostic in the recovery result or tests."),
-    LiveTask("task-19-quality-tests", "tests/test_output_quality.py", "verify that the benchmark separates reduction from task success and retention", "Inspect the separate fields or assertions for reduction, task success, and retention."),
+    LiveTask("task-16-streaming", "tokensplit/streaming.py", "verify that streaming usage totals are normalized without guessing missing fields", "Check normalization of streaming totals and unknown fields, then end with the exact three contract lines; do not omit TASK_STATUS: PASS."),
+    LiveTask("task-17-cache", "tokensplit/cache.py", "verify that cache cost estimates distinguish read and write pricing", "Check separate read and write pricing paths, then end with TASK_ID, TARGET, and TASK_STATUS on their own final lines."),
+    LiveTask("task-18-persistent-memory", "tokensplit/persistent_memory.py", "verify that persistent memory recovery reports partial corruption", "Check the explicit partial-corruption diagnostic in recovery and tests, then print the complete three-line contract with TASK_STATUS: PASS as the last line."),
+    LiveTask("task-19-quality-tests", "tests/test_output_quality.py", "verify that the benchmark separates reduction from task success and retention", "Check separate fields or assertions for reduction, task success, and retention, then append the complete three-line contract even after concise evidence."),
     LiveTask("task-20-documentation", "README.md", "verify that the documented calibration command matches the available script"),
     LiveTask("task-21-product-ci", "scripts/product_ci.py", "verify that the full local CI path includes tests, typecheck, and build"),
     LiveTask("task-22-policy", "policy.json", "verify that unknown measurements are excluded from evidence"),

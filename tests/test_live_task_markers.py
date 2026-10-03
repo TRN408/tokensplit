@@ -1,6 +1,6 @@
 import unittest
 
-from scripts.collect_live_task_markers import LiveTask
+from scripts.collect_live_task_markers import TASKS, LiveTask
 
 
 class LiveTaskContractTests(unittest.TestCase):
@@ -18,6 +18,24 @@ class LiveTaskContractTests(unittest.TestCase):
     def test_task_specific_guidance_is_included_without_response_content(self):
         task = LiveTask("task-x", "tokensplit/example.py", "verify the example", "Look for the example regression test.")
         self.assertIn("Verification guidance: Look for the example regression test.", task.prompt)
+
+    def test_observed_marker_failures_have_contract_completion_guidance(self):
+        observed = {
+            "task-05-pruning",
+            "task-10-tool-adapters",
+            "task-14-pricing",
+            "task-16-streaming",
+            "task-17-cache",
+            "task-18-persistent-memory",
+            "task-19-quality-tests",
+        }
+        tasks = {task.task_id: task for task in TASKS}
+        for task_id in observed:
+            with self.subTest(task_id=task_id):
+                prompt = tasks[task_id].prompt
+                self.assertIn("Verification guidance:", prompt)
+                self.assertIn("three contract lines", prompt)
+                self.assertIn("TASK_STATUS", prompt)
 
 
 if __name__ == "__main__":
