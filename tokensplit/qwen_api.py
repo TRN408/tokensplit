@@ -453,7 +453,17 @@ class QwenToolCallingRunner(QwenApiRunner):
         return "ERROR: tool is not available"
 
     def _request(self, *, prompt: str, model: str) -> Mapping[str, Any]:
-        messages: list[Mapping[str, Any]] = [{"role": "user", "content": prompt}]
+        messages: list[Mapping[str, Any]] = [
+            {
+                "role": "system",
+                "content": (
+                    "You are a read-only repository reviewer. Use the provided tools only when needed, "
+                    "prefer the minimum number of calls, never invent file contents, and return a final "
+                    "answer after you have enough evidence. Do not request shell commands or file changes."
+                ),
+            },
+            {"role": "user", "content": prompt},
+        ]
         for _ in range(self.max_tool_rounds):
             payload = self._post_messages(messages=messages, model=model, tools=self._TOOLS)
             choices = payload.get("choices")
