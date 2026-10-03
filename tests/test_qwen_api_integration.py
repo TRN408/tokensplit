@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import patch
 from urllib.error import URLError
@@ -12,6 +13,7 @@ from tokensplit import (
     QwenApiConfig,
     QwenApiError,
     QwenApiRunner,
+    QwenToolCallingRunner,
 )
 
 
@@ -103,6 +105,50 @@ class QwenApiIntegrationTests(unittest.TestCase):
         self.assertEqual(result.stderr_category, "network")
         self.assertEqual(result.retry_wait_seconds, 0.25)
         self.assertEqual(delays, [0.25])
+
+    def test_tool_runner_executes_only_read_only_file_tool_and_returns_final_answer(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            target = root / "target.py"
+            target.write_text("def answer():\n    return 42\n", encoding="utf-8")
+            runner = QwenToolCallingRunner(
+                QwenApiConfig(api_key="test-key", working_directory=root),
+            )
+            tool_call = {
+                "id": "call-1",
+                "type": "function",
+                "function": {
+                    "name": "read_file",
+                    "arguments": json.dumps({"path": "target.py"}),
+                },
+            }
+            first = {
+                "model": "qwen-plus",
+                "choices": [{"message": {"content": None, "tool_calls": [tool_call]}}],
+            }
+            second = {
+                "model": "qwen-plus",
+                "choices": [{"message": {"content": "TASK_STATUS: PASS"}}],
+                "usage": {"prompt_tokens": 5, "completion_tokens": 4},
+            }
+            with patch.object(runner, "_post_messages", side_effect=[first, second]) as post:
+                result = runner.run(
+                    request_id="tool-smoke",
+                    prompt="Read target.py and report the result.",
+                    model="qwen-plus",
+                )
+
+            self.assertEqual(result.text, "TASK_STATUS: PASS")
+            self.assertEqual(post.call_count, 2)
+            messages = post.call_args_list[1].kwargs["messages"]
+            self.assertEqual(messages[-1]["role"], "tool")
+            self.assertIn("return 42", messages[-1]["content"])
+            self.assertIn("tools", post.call_args_list[0].kwargs)
+
+    def test_tool_runner_blocks_paths_outside_repository(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            runner = QwenToolCallingRunner(QwenApiConfig(working_directory=temporary))
+            self.assertEqual(runner._execute_tool("read_file", {"path": "../outside"}), "ERROR: file is unavailable")
 
     def test_missing_qwen_key_is_a_safe_permanent_auth_failure(self):
         runner = QwenApiRunner(QwenApiConfig())

@@ -78,10 +78,10 @@ QWEN_API_KEY=... python3 scripts/collect_live_task_markers.py reports/comparison
   --provider qwen --model qwen-plus --count 20
 ```
 
-The direct API adapter normalizes Qwen chat-completion responses, but it does
-not grant the model access to the local repository. Repository inspection
-tasks therefore require a Qwen tool-enabled CLI or an equivalent execution
-wrapper if the task prompts need file access.
+The Producer uses Qwen function calling with a bounded read-only toolset
+(`read_file`, `list_files`, and `search_text`) so repository inspection tasks
+can run without granting shell or mutation capabilities. The selected Qwen
+model must support function calling.
 
 The period report and quiet threshold gate consume that JSONL. A threshold
 breach returns exit code `10` with `--fail-on-threshold` and creates a

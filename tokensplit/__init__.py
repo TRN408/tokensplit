@@ -44,6 +44,7 @@ from .qwen_api import (
     QwenApiConfig,
     QwenApiError,
     QwenApiRunner,
+    QwenToolCallingRunner,
 )
 from .routing import (
     ModelProfile,
@@ -96,6 +97,7 @@ __all__ = [
     "QwenApiConfig",
     "QwenApiError",
     "QwenApiRunner",
+    "QwenToolCallingRunner",
     "ModelProfile",
     "ModelRouter",
     "QualityAssessment",
