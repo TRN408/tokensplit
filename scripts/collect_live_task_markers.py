@@ -41,10 +41,14 @@ class LiveTask:
             "Perform a read-only verification task in the current repository. Do "
             "not edit, create, delete, or execute commands that mutate files. "
             f"Inspect {self.target} and its related tests, then {self.check} "
-            "Report concise evidence. The evaluator requires these exact lines "
-            "at the end of the response, each on its own line; copy them "
-            "verbatim and set TASK_STATUS to PASS only when the check passes: "
-            f"TASK_ID: {self.task_id}; TARGET: {self.target}; TASK_STATUS: PASS."
+            "Report concise evidence. Finish with exactly the following three "
+            "lines, in this order, each on its own line. Do not use semicolons, "
+            "extra punctuation, or a code fence in this three-line contract. "
+            "Copy the labels and values verbatim. Set TASK_STATUS to PASS only "
+            "when the check passes; otherwise use TASK_STATUS: FAIL.\n\n"
+            f"TASK_ID: {self.task_id}\n"
+            f"TARGET: {self.target}\n"
+            "TASK_STATUS: PASS"
         )
 
 
