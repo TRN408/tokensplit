@@ -29,6 +29,7 @@ class LiveTaskContractTests(unittest.TestCase):
             "task-17-cache",
             "task-18-persistent-memory",
             "task-19-quality-tests",
+            "task-15-usage",
         }
         tasks = {task.task_id: task for task in TASKS}
         for task_id in observed:
