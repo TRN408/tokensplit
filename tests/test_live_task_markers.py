@@ -15,6 +15,10 @@ class LiveTaskContractTests(unittest.TestCase):
         self.assertIn("these acceptance checks are expected to pass", prompt)
         self.assertNotIn("TASK_ID: task-x; TARGET:", prompt)
 
+    def test_task_specific_guidance_is_included_without_response_content(self):
+        task = LiveTask("task-x", "tokensplit/example.py", "verify the example", "Look for the example regression test.")
+        self.assertIn("Verification guidance: Look for the example regression test.", task.prompt)
+
 
 if __name__ == "__main__":
     unittest.main()

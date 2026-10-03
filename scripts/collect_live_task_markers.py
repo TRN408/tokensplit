@@ -15,7 +15,7 @@ from typing import Any
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from tokensplit.claude_cli import ClaudeCliConfig, ClaudeCliRunner, ClaudeCodeCliAdapter
+from tokensplit.claude_cli import ClaudeCliConfig, ClaudeCliError, ClaudeCliRunner, ClaudeCodeCliAdapter
 from tokensplit.orchestration import AgentControlPolicy, AgentController, AgentRequest
 from tokensplit.output_gate import GateLimits
 from tokensplit.qwen_api import QwenApiAdapter, QwenApiConfig, QwenToolCallingRunner
@@ -26,6 +26,7 @@ class LiveTask:
     task_id: str
     target: str
     check: str
+    guidance: str = ""
 
     @property
     def markers(self) -> tuple[str, ...]:
@@ -37,11 +38,13 @@ class LiveTask:
 
     @property
     def prompt(self) -> str:
+        guidance = f"Verification guidance: {self.guidance} " if self.guidance else ""
         return (
             "Perform a read-only verification task in the current repository. Do "
             "not edit, create, delete, or execute commands that mutate files. "
             f"Inspect {self.target} and its related tests, then {self.check} "
-            "Report concise evidence. Finish with exactly the following three "
+            + guidance
+            + "Report concise evidence. Finish with exactly the following three "
             "lines, in this order, each on its own line. Do not use semicolons, "
             "extra punctuation, or a code fence in this three-line contract. "
             "Copy the labels and values verbatim. Set TASK_STATUS to PASS when "
@@ -61,24 +64,24 @@ class LiveTask:
 
 TASKS = (
     LiveTask("task-01-output-gate", "tokensplit/output_gate.py", "verify that priority lines are retained before routine lines when a report is truncated"),
-    LiveTask("task-02-cli-adapter", "tokensplit/claude_cli.py", "verify that the adapter exposes gated text and records gate token metrics"),
+    LiveTask("task-02-cli-adapter", "tokensplit/claude_cli.py", "verify that the adapter exposes gated text and records gate token metrics", "Look for both gated text exposure and output_gate_* metrics in the adapter and its tests."),
     LiveTask("task-03-orchestration", "tokensplit/orchestration.py", "verify that comparison logs replay without prompt or response text"),
     LiveTask("task-04-context", "tokensplit/context.py", "verify that context compression preserves required marker lines"),
-    LiveTask("task-05-pruning", "tokensplit/pruning.py", "verify that pruning reports important-marker retention"),
+    LiveTask("task-05-pruning", "tokensplit/pruning.py", "verify that pruning reports important-marker retention", "Look for the important-marker retention result and its regression test."),
     LiveTask("task-06-routing", "tokensplit/routing.py", "verify that routing quality evidence distinguishes unknown values from failures"),
     LiveTask("task-07-monitor", "tokensplit/monitor.py", "verify that missing cache fields are not treated as zero"),
     LiveTask("task-08-importer", "tokensplit/importer.py", "verify that malformed usage rows are diagnosed without exposing prompt text"),
     LiveTask("task-09-service-guides", "tokensplit/service_guides.py", "verify that unknown services produce a bounded research fallback"),
-    LiveTask("task-10-tool-adapters", "tokensplit/tool_adapters.py", "verify that cursor expiry is surfaced as a recoverable adapter error"),
+    LiveTask("task-10-tool-adapters", "tokensplit/tool_adapters.py", "verify that cursor expiry is surfaced as a recoverable adapter error", "Look for a dedicated cursor-expiry error path that callers can recover from, plus its test."),
     LiveTask("task-11-opensearch", "tokensplit/opensearch_client.py", "verify that search-after pagination keeps the public snapshot stable"),
-    LiveTask("task-12-langfuse", "tokensplit/langfuse.py", "verify that observation pagination deduplicates records by id"),
+    LiveTask("task-12-langfuse", "tokensplit/langfuse.py", "verify that observation pagination deduplicates records by id", "Inspect pagination state and id-based deduplication together; do not require network access."),
     LiveTask("task-13-report", "tokensplit/report.py", "verify that usage reports omit prompt contents"),
-    LiveTask("task-14-pricing", "tokensplit/pricing.py", "verify that stale or missing price coverage is rejected"),
+    LiveTask("task-14-pricing", "tokensplit/pricing.py", "verify that stale or missing price coverage is rejected", "Inspect the validator branches for both missing and stale provider/model coverage and their tests."),
     LiveTask("task-15-usage", "tokensplit/usage.py", "verify that provider usage normalization preserves cache-write unknowns"),
     LiveTask("task-16-streaming", "tokensplit/streaming.py", "verify that streaming usage totals are normalized without guessing missing fields"),
     LiveTask("task-17-cache", "tokensplit/cache.py", "verify that cache cost estimates distinguish read and write pricing"),
-    LiveTask("task-18-persistent-memory", "tokensplit/persistent_memory.py", "verify that persistent memory recovery reports partial corruption"),
-    LiveTask("task-19-quality-tests", "tests/test_output_quality.py", "verify that the benchmark separates reduction from task success and retention"),
+    LiveTask("task-18-persistent-memory", "tokensplit/persistent_memory.py", "verify that persistent memory recovery reports partial corruption", "Look for an explicit partial-corruption diagnostic in the recovery result or tests."),
+    LiveTask("task-19-quality-tests", "tests/test_output_quality.py", "verify that the benchmark separates reduction from task success and retention", "Inspect the separate fields or assertions for reduction, task success, and retention."),
     LiveTask("task-20-documentation", "README.md", "verify that the documented calibration command matches the available script"),
     LiveTask("task-21-product-ci", "scripts/product_ci.py", "verify that the full local CI path includes tests, typecheck, and build"),
     LiveTask("task-22-policy", "policy.json", "verify that unknown measurements are excluded from evidence"),
@@ -131,7 +134,12 @@ def collect(
         adapter = QwenApiAdapter(runner=runner, controller=controller)
     else:
         raise ValueError(f"unsupported provider: {provider}")
-    failures: list[dict[str, str]] = []
+    failures: list[dict[str, Any]] = []
+
+    def missing_marker_categories(presence: tuple[bool, ...]) -> list[str]:
+        names = ("task_id", "target", "task_status")
+        return [name for name, present in zip(names, presence) if not present]
+
     for task in TASKS[:count]:
         try:
             result = adapter.dispatch(
@@ -145,11 +153,27 @@ def collect(
             )
             run = result.runs[0]
             if run.baseline_task_success is not True:
-                failures.append({"task_id": task.task_id, "reason": "baseline_contract_failed"})
+                failures.append(
+                    {
+                        "task_id": task.task_id,
+                        "reason": "baseline_contract_failed",
+                        "missing_baseline_markers": missing_marker_categories(run.baseline_marker_presence),
+                    }
+                )
             elif run.task_success is not True:
-                failures.append({"task_id": task.task_id, "reason": "formatted_contract_failed"})
+                failures.append(
+                    {
+                        "task_id": task.task_id,
+                        "reason": "formatted_contract_failed",
+                        "missing_gated_markers": missing_marker_categories(run.retained_marker_presence),
+                    }
+                )
         except Exception as exc:  # noqa: BLE001 - collect a safe category, not exception text
-            failures.append({"task_id": task.task_id, "reason": type(exc).__name__})
+            failure: dict[str, Any] = {"task_id": task.task_id, "reason": type(exc).__name__}
+            if isinstance(exc, ClaudeCliError) and exc.diagnostic is not None:
+                failure["failure_category"] = exc.diagnostic.category
+                failure["retryable"] = exc.diagnostic.retryable
+            failures.append(failure)
 
     records = adapter.comparison_log.render_jsonl()
     output.parent.mkdir(parents=True, exist_ok=True)

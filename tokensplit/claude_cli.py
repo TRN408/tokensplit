@@ -214,6 +214,8 @@ class ClaudeCliRunResult:
     task_success: bool | None = None
     important_information_retention: float | None = None
     required_markers: int = 0
+    baseline_marker_presence: tuple[bool, ...] = ()
+    retained_marker_presence: tuple[bool, ...] = ()
     baseline_retained_markers: int | None = None
     retained_markers: int | None = None
     output_gate_original_tokens: int = 0
@@ -332,6 +334,8 @@ class ClaudeCliRunner:
             task_success=task_success,
             important_information_retention=retention,
             required_markers=len(marker_values),
+            baseline_marker_presence=tuple(marker in result for marker in marker_values),
+            retained_marker_presence=tuple(marker in gated.text for marker in marker_values),
             baseline_retained_markers=baseline_retained if marker_values else None,
             retained_markers=retained if marker_values else None,
             output_gate_original_tokens=gated.original_tokens,
