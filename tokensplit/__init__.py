@@ -60,6 +60,14 @@ from .routing import (
     TaskClassifier,
     TaskType,
 )
+from .service_guides import (
+    ServiceGuide,
+    ServiceGuideError,
+    ServiceGuidePersistenceError,
+    ServiceGuideRegistry,
+    ServiceGuideResult,
+    ServiceGuideStore,
+)
 
 __all__ = [
     "GateLimits",
@@ -110,4 +118,10 @@ __all__ = [
     "RoutingRecord",
     "TaskClassifier",
     "TaskType",
+    "ServiceGuide",
+    "ServiceGuideError",
+    "ServiceGuidePersistenceError",
+    "ServiceGuideRegistry",
+    "ServiceGuideResult",
+    "ServiceGuideStore",
 ]

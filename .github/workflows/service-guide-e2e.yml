@@ -1,0 +1,130 @@
+name: service-guide e2e
+
+on:
+  pull_request:
+    paths:
+      - ".agent-ci-policy.yml"
+      - ".github/workflows/service-guide-e2e.yml"
+      - "scripts/annotate_service_guide_digest_diff.py"
+      - "scripts/compare_service_guide_ci_digests.py"
+      - "scripts/regenerate_service_guide_sqlite_fixtures.py"
+      - "scripts/service_guides.py"
+      - "scripts/update_pr_comment.py"
+      - "scripts/validate_service_guide_ci_config.py"
+      - "scripts/validate_service_guide_ci_matrix_cell.py"
+      - "tests/fixtures/service_guides.*"
+      - "tokensplit/service_guides.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  service-guide-catalog-matrix:
+    name: service guides (${{ matrix.environment }}, ${{ matrix.format }})
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [staging, production]
+        format: [json, sqlite]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: validate configured catalog
+        run: >-
+          python3 scripts/validate_service_guide_ci_matrix_cell.py
+          --config .agent-ci-policy.yml
+          --environment "${{ matrix.environment }}"
+          --format "${{ matrix.format }}"
+          --output ".ci-artifacts/service-guides/${{ matrix.environment }}-${{ matrix.format }}.json"
+      - name: publish matrix summary
+        if: always()
+        run: |
+          report=".ci-artifacts/service-guides/${{ matrix.environment }}-${{ matrix.format }}.json"
+          if test -f "$report"; then cat "$report" >> "$GITHUB_STEP_SUMMARY"; fi
+      - name: upload matrix report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607da02 # v4.6.2
+        with:
+          name: service-guide-${{ matrix.environment }}-${{ matrix.format }}
+          path: .ci-artifacts/service-guides/${{ matrix.environment }}-${{ matrix.format }}.json
+          if-no-files-found: error
+          retention-days: 7
+
+  service-guide-catalog-diff:
+    name: service-guide digest comment e2e
+    needs: service-guide-catalog-matrix
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: restore previous digest history
+        uses: actions/cache/restore@v4
+        with:
+          path: .ci-artifacts/service-guide-digest-history
+          key: service-guide-e2e-${{ github.repository }}-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: |
+            service-guide-e2e-${{ github.repository }}-${{ github.ref_name }}-
+            service-guide-e2e-${{ github.repository }}-
+      - name: download current matrix reports
+        if: always()
+        continue-on-error: true
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
+        with:
+          pattern: service-guide-*
+          path: .ci-artifacts/service-guides/current
+          merge-multiple: true
+      - name: compare digests
+        if: always()
+        run: >-
+          python3 scripts/compare_service_guide_ci_digests.py
+          --current-dir .ci-artifacts/service-guides/current
+          --history-dir .ci-artifacts/service-guide-digest-history
+          --output .ci-artifacts/service-guides/digest-diff.json
+          --markdown-output .ci-artifacts/service-guides/digest-diff.md
+          --update-history
+      - name: publish digest summary
+        if: always()
+        run: |
+          if test -f .ci-artifacts/service-guides/digest-diff.md; then
+            cat .ci-artifacts/service-guides/digest-diff.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: prepare PR comment
+        if: always()
+        run: |
+          if test -f .ci-artifacts/service-guides/digest-diff.json; then
+            python3 scripts/annotate_service_guide_digest_diff.py \
+              --input .ci-artifacts/service-guides/digest-diff.json \
+              --comment-output .ci-artifacts/service-guides/digest-diff-comment.md
+          fi
+      - name: update PR comment
+        if: ${{ always() && github.event_name == 'pull_request' }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if test -f .ci-artifacts/service-guides/digest-diff-comment.md; then
+            python3 scripts/update_pr_comment.py \
+              --input .ci-artifacts/service-guides/digest-diff-comment.md \
+              --marker '<!-- service-guide-digest-diff -->' \
+              --delete-if-empty
+          fi
+      - name: upload digest report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607da02 # v4.6.2
+        with:
+          name: service-guide-digest-diff
+          path: |
+            .ci-artifacts/service-guides/digest-diff.json
+            .ci-artifacts/service-guides/digest-diff.md
+          if-no-files-found: warn
+          retention-days: 7
+      - name: save digest history
+        if: ${{ always() && hashFiles('.ci-artifacts/service-guide-digest-history/*.json') != '' }}
+        uses: actions/cache/save@v4
+        with:
+          path: .ci-artifacts/service-guide-digest-history
+          key: service-guide-e2e-${{ github.repository }}-${{ github.ref_name }}-${{ github.run_id }}

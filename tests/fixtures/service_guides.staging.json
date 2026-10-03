@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "guides": [
+    {
+      "service_id": "fixture-api-staging",
+      "version": 1,
+      "updated_at": "2026-10-03T00:00:00Z",
+      "reviewed": true,
+      "key_points": [
+        "Use the staging records endpoint for non-production verification."
+      ],
+      "required_parameters": [
+        "tenant_id",
+        "record_id"
+      ],
+      "authentication": [
+        "OAuth2 bearer token with staging scope"
+      ],
+      "pitfalls": [
+        "Staging data is synthetic and must not be used as production evidence."
+      ],
+      "source_urls": [
+        "https://staging.example.test/docs",
+        "https://staging.example.test/api/authentication"
+      ]
+    }
+  ]
+}

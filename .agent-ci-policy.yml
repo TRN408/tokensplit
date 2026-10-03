@@ -14,6 +14,19 @@ commands:
   build: python3 scripts/product_ci.py build
   full_ci: python3 scripts/product_ci.py full_ci
 
+service_guides:
+  environments:
+    staging:
+      required: true
+      catalogs:
+        - tests/fixtures/service_guides.staging.json
+        - tests/fixtures/service_guides.staging.sqlite3
+    production:
+      required: true
+      catalogs:
+        - tests/fixtures/service_guides.valid.json
+        - tests/fixtures/service_guides.production.sqlite3
+
 github:
   enabled: false
   workflow_mode: manual

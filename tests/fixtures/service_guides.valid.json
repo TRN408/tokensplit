@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "guides": [
+    {
+      "service_id": "fixture-api",
+      "version": 1,
+      "updated_at": "2026-10-03T00:00:00Z",
+      "reviewed": true,
+      "key_points": [
+        "Use the v1 records endpoint for this fixture."
+      ],
+      "required_parameters": [
+        "tenant_id",
+        "record_id"
+      ],
+      "authentication": [
+        "OAuth2 bearer token with records:read scope"
+      ],
+      "pitfalls": [
+        "Amounts are integer minor units.",
+        "Follow the next_page cursor before retrying a page."
+      ],
+      "source_urls": [
+        "https://example.test/fixture-api/docs",
+        "https://example.test/fixture-api/auth"
+      ]
+    }
+  ]
+}
