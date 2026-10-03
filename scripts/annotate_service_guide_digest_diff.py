@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Create a pull-request comment for changed service-guide matrix digests."""
 
+# The fork PR changes this file only to trigger the cross-repository E2E run.
+
 from __future__ import annotations
 
 import argparse
