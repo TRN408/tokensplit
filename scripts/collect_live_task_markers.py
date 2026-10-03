@@ -111,10 +111,11 @@ def collect(
         runner = QwenToolCallingRunner(
             QwenApiConfig(
                 output_limits=limits,
-                max_retries=2,
-                timeout_seconds=180,
+                max_retries=1,
+                timeout_seconds=60,
                 working_directory=Path.cwd(),
-            )
+            ),
+            max_tool_rounds=4,
         )
         adapter = QwenApiAdapter(runner=runner, controller=controller)
     else:
